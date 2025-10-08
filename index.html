@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Ujian Tengah Semester</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:0;background:#f4f4f4;color:#333}
+header{background:#0073e6;color:#fff;padding:20px;text-align:center}
+nav{background:#005bb5;display:flex;justify-content:center;flex-wrap:wrap}
+nav a{color:#fff;padding:14px 20px;text-decoration:none;display:block}
+nav a:hover{background:#003f7f}
+.container{padding:20px}
+.card{background:#fff;margin:10px 0;padding:20px;border-radius:8px;box-shadow:0 2px 5px rgba(0,0,0,0.1)}
+h2{color:#005bb5}
+label{display:block;margin-top:10px}
+button{background:#0073e6;color:#fff;border:none;padding:10px 15px;border-radius:5px;cursor:pointer;margin-top:10px}
+button:hover{background:#005bb5}
+.hidden{display:none}
+footer{text-align:center;padding:10px;background:#0073e6;color:#fff;margin-top:20px}
+input,select{width:100%;padding:8px;margin-top:5px;border:1px solid #ccc;border-radius:5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Dashboard Ujian Tengah Semester</h1>
+  <p>Mata Pelajaran Informatika & Prakarya (Kelas 7–9)</p>
+</header>
+
+<div class="container">
+  <!-- Form Identitas -->
+  <div class="card" id="identitas">
+    <h2>Identitas Siswa</h2>
+    <label>Nama:</label><input type="text" id="nama">
+    <label>Kelas:</label>
+    <select id="kelas">
+      <option value="">-- Pilih Kelas --</option>
+      <option value="7">7</option>
+      <option value="8">8</option>
+      <option value="9">9</option>
+    </select>
+    <label>NISN:</label><input type="text" id="nisn">
+    <label>Mata Pelajaran:</label>
+    <select id="mapel">
+      <option value="">-- Pilih Mapel --</option>
+      <option value="Informatika">Informatika</option>
+      <option value="Prakarya">Prakarya</option>
+    </select>
+    <button onclick="mulaiUjian()">Mulai Ujian</button>
+  </div>
+
+  <!-- Tampilan Soal -->
+  <div id="soalContainer" class="card hidden">
+    <h2 id="judulSoal"></h2>
+    <form id="formSoal" onsubmit="kirimJawaban(event)">
+      <div id="daftarSoal"></div>
+      <button type="submit">Kirim Semua Jawaban</button>
+    </form>
+  </div>
+</div>
+
+<footer><p>© 2025 Dashboard UTS Informatika & Prakarya</p></footer>
+
+<script>
+// === GANTI URL BERIKUT DENGAN LINK WEB APP SCRIPT-MU ===
+const scriptURL = "https://script.google.com/macros/s/AKfycxxxxx/exec";
+
+async function mulaiUjian(){
+  const nama = document.getElementById("nama").value.trim();
+  const kelas = document.getElementById("kelas").value.trim();
+  const nisn = document.getElementById("nisn").value.trim();
+  const mapel = document.getElementById("mapel").value.trim();
+  
+  if(!nama || !kelas || !nisn || !mapel){
+    alert("Lengkapi semua identitas terlebih dahulu!");
+    return;
+  }
+  
+  localStorage.setItem("nama", nama);
+  localStorage.setItem("kelas", kelas);
+  localStorage.setItem("nisn", nisn);
+  localStorage.setItem("mapel", mapel);
+  
+  document.getElementById("identitas").classList.add("hidden");
+  document.getElementById("soalContainer").classList.remove("hidden");
+  document.getElementById("judulSoal").textContent = `Soal ${mapel} Kelas ${kelas}`;
+  
+  // Ambil soal dari Spreadsheet
+  const res = await fetch(`${scriptURL}?kelas=${kelas}&mapel=${mapel}`);
+  const soal = await res.json();
+  
+  const div = document.getElementById("daftarSoal");
+  div.innerHTML = "";
+  soal.forEach((s,i)=>{
+    div.innerHTML += `
+      <div style="margin-bottom:20px">
+        <b>${i+1}. ${s.pertanyaan}</b><br>
+        <label><input type="radio" name="soal${s.no}" value="A"> A. ${s.a}</label><br>
+        <label><input type="radio" name="soal${s.no}" value="B"> B. ${s.b}</label><br>
+        <label><input type="radio" name="soal${s.no}" value="C"> C. ${s.c}</label><br>
+        <label><input type="radio" name="soal${s.no}" value="D"> D. ${s.d}</label>
+      </div>`;
+  });
+}
+
+async function kirimJawaban(e){
+  e.preventDefault();
+  const form = e.target;
+  const data = new FormData(form);
+  
+  const nama = localStorage.getItem("nama");
+  const kelas = localStorage.getItem("kelas");
+  const nisn = localStorage.getItem("nisn");
+  const mapel = localStorage.getItem("mapel");
+
+  for(let [key,value] of data.entries()){
+    const nomor = key.replace("soal","");
+    const payload = { nama, kelas, nisn, mapel, nomor, jawaban:value };
+    await fetch(scriptURL,{
+      method:"POST",
+      body:JSON.stringify(payload),
+      headers:{"Content-Type":"application/json"}
+    });
+  }
+
+  alert("Jawaban berhasil dikirim ke sistem. Terima kasih!");
+  location.reload();
+}
+</script>
+</body>
+</html>
