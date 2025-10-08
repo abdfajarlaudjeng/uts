@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kuis Online Informatika</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #f9fafb; }
+    .card { background: white; border-radius: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body class="font-sans min-h-screen flex flex-col items-center justify-start p-6">
+
+  <div class="w-full max-w-3xl">
+    <h1 class="text-2xl font-bold mb-4 text-center text-indigo-600">Kuis Online Informatika</h1>
+
+    <!-- Form Data Siswa -->
+    <div id="formIdentitas" class="card">
+      <h2 class="font-semibold text-lg mb-2 text-gray-700">Data Siswa</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input id="nama" type="text" placeholder="Nama Lengkap" class="border p-2 rounded w-full" />
+        <input id="nisn" type="text" placeholder="NISN" class="border p-2 rounded w-full" />
+        <input id="kelas" type="text" placeholder="Kelas (misal: 8)" class="border p-2 rounded w-full" />
+        <input id="mapel" type="text" placeholder="Mapel (misal: Informatika)" class="border p-2 rounded w-full" />
+      </div>
+      <button onclick="mulaiKuis()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 mt-4 rounded">Mulai Kuis</button>
+    </div>
+
+    <!-- Daftar Soal -->
+    <div id="soalContainer" class="hidden">
+      <h2 class="text-lg font-semibold mb-4 text-gray-700">Soal</h2>
+      <form id="kuisForm" class="space-y-4"></form>
+      <button onclick="kirimJawaban()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 mt-6 rounded">Kirim Jawaban</button>
+    </div>
+
+    <!-- Notifikasi -->
+    <div id="notifikasi" class="hidden mt-6 text-center text-green-600 font-semibold"></div>
+  </div>
+
+  <script>
+    // ===== Konfigurasi =====
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbXXXXXXXXX/exec"; // Ganti URL Web App-mu
+    const SECRET_TOKEN = "RAHASIA-12345"; // Ganti sama dengan yang di Code.gs
+
+    let soalData = [];
+    let identitas = {};
+
+    // ===== Fungsi Mulai Kuis =====
+    async function mulaiKuis() {
+      const nama = document.getElementById("nama").value.trim();
+      const nisn = document.getElementById("nisn").value.trim();
+      const kelas = document.getElementById("kelas").value.trim();
+      const mapel = document.getElementById("mapel").value.trim();
+
+      if (!nama || !nisn || !kelas || !mapel) {
+        alert("Mohon lengkapi semua data siswa!");
+        return;
+      }
+
+      identitas = { nama, nisn, kelas, mapel };
+      document.getElementById("formIdentitas").classList.add("hidden");
+
+      try {
+        const res = await fetch(`${SCRIPT_URL}?kelas=${kelas}&mapel=${mapel}`);
+        soalData = await res.json();
+        if (!Array.isArray(soalData) || soalData.length === 0) {
+          alert("Belum ada soal untuk kelas dan mapel ini.");
+          return;
+        }
+        tampilkanSoal();
+      } catch (err) {
+        console.error(err);
+        alert("Gagal mengambil data soal. Cek koneksi atau URL Script.");
+      }
+    }
+
+    // ===== Tampilkan Soal di Halaman =====
+    function tampilkanSoal() {
+      const container = document.getElementById("kuisForm");
+      container.innerHTML = "";
+
+      soalData.forEach((s, idx) => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <p class="font-semibold mb-2">${s.no}. ${s.pertanyaan}</p>
+          <label class="block"><input type="radio" name="soal${idx}" value="A" class="mr-2">A. ${s.a}</label>
+          <label class="block"><input type="radio" name="soal${idx}" value="B" class="mr-2">B. ${s.b}</label>
+          <label class="block"><input type="radio" name="soal${idx}" value="C" class="mr-2">C. ${s.c}</label>
+          <label class="block"><input type="radio" name="soal${idx}" value="D" class="mr-2">D. ${s.d}</label>
+        `;
+        container.appendChild(div);
+      });
+
+      document.getElementById("soalContainer").classList.remove("hidden");
+    }
+
+    // ===== Kirim Jawaban ke Google Sheets =====
+    async function kirimJawaban() {
+      const jawaban = [];
+      soalData.forEach((s, idx) => {
+        const pilih = document.querySelector(`input[name='soal${idx}']:checked`);
+        jawaban.push({
+          nomor: s.no,
+          jawaban: pilih ? pilih.value : "",
+        });
+      });
+
+      // validasi minimal 1 jawaban
+      if (!jawaban.some(j => j.jawaban)) {
+        alert("Kamu belum menjawab soal apa pun!");
+        return;
+      }
+
+      for (const j of jawaban) {
+        const data = {
+          secretToken: SECRET_TOKEN,
+          nama: identitas.nama,
+          kelas: identitas.kelas,
+          nisn: identitas.nisn,
+          mapel: identitas.mapel,
+          nomor: j.nomor,
+          jawaban: j.jawaban
+        };
+
+        try {
+          await fetch(SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify(data),
+            headers: { "Content-Type": "application/json" }
+          });
+        } catch (err) {
+          console.error(err);
+          alert("Gagal mengirim jawaban. Coba lagi.");
+          return;
+        }
+      }
+
+      document.getElementById("soalContainer").classList.add("hidden");
+      const notif = document.getElementById("notifikasi");
+      notif.classList.remove("hidden");
+      notif.textContent = "✅ Jawaban berhasil dikirim! Terima kasih.";
+    }
+  </script>
+</body>
+</html>
